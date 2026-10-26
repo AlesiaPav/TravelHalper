@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Умный гид по городу</title>
+<link rel="stylesheet" href="/vendor/leaflet.css">
+<link rel="stylesheet" href="/static/map.css">
+<link rel="stylesheet" href="/static/macos.css">
+</head>
+<body>
+<section id="startup-screen" class="startup-screen" aria-live="polite">
+	<div class="startup-card"><span class="startup-mark">⌖</span><div class="startup-spinner" aria-hidden="true"></div><p class="eyebrow">ГОРОД РЯДОМ</p><h1>Готовим вашу карту</h1><p id="startup-message">Загружаем каталог городов…</p><div class="startup-checks"><span id="startup-catalog">Каталог · проверяем</span><span id="startup-internet">Интернет · проверяем</span><span id="startup-location">Местоположение · проверяем</span></div><div id="startup-offline-actions" class="startup-offline-actions" hidden><p id="startup-offline-message">Интернета нет. Продолжить офлайн или попробовать ещё?</p><div><button id="startup-continue-offline" class="primary" type="button">Продолжить офлайн</button><button id="startup-retry-internet" type="button">Попробовать ещё</button></div></div></div>
+</section>
+<aside id="internet-restored-notice" class="network-notice" role="status" aria-live="polite" hidden>
+	<div><strong id="network-notice-title">Интернет появился</strong><span id="network-notice-message">Перейти в онлайн-режим?</span></div>
+	<div class="network-notice-actions"><button id="network-notice-retry" type="button">Позже</button><button id="network-notice-action" class="primary" type="button">Перейти онлайн</button></div>
+</aside>
+<div class="app">
+	<header class="topbar">
+		<a class="brand" href="#map" aria-label="Умный гид"><span class="brand-mark">⌖</span><span>город<span class="brand-accent">рядом</span></span></a>
+		<nav class="main-nav" aria-label="Главная навигация">
+			<button class="nav-tab active" type="button" data-view="map">Карта</button>
+			<button class="nav-tab" type="button" data-view="places">Достопримечательности</button>
+			<button class="nav-tab" type="button" data-view="game">Мини-игра</button>
+			<button class="nav-tab" type="button" data-view="profile">Профиль</button>
+			<button class="nav-tab" type="button" data-view="settings">Настройки</button>
+		</nav>
+		<div class="topbar-actions">
+			<div class="city-picker">
+				<span class="city-picker-icon" aria-hidden="true">⌖</span>
+				<input id="city-search" class="city-search" type="search" placeholder="Найти город" role="combobox" aria-label="Город" aria-autocomplete="list" aria-expanded="false" aria-controls="city-suggestions" autocomplete="off">
+				<div id="city-suggestions" class="city-suggestions" role="listbox" aria-label="Города" hidden></div>
+			</div>
+			<select id="city-select" class="city-select" aria-label="Город" hidden></select>
+			<button id="theme-toggle" class="icon-button" type="button" title="Переключить тему" aria-label="Переключить тему" aria-pressed="false">☼</button>
+			<button id="locate-button" class="icon-button" type="button" title="Определить местоположение" aria-label="Определить местоположение">⌖</button>
+		</div>
+	</header>
+	<main class="main-content">
+		<section class="view-panel map-view active" id="map-view" data-view-panel="map" aria-label="Карта города">
+			<aside class="map-sidebar">
+				<div class="sidebar-heading"><span class="eyebrow">СЕГОДНЯ В ГОРОДЕ</span><h1 id="city-label">Места рядом</h1><p id="location-status" class="location-status" aria-live="polite">Местоположение не определено</p></div>
+				<button id="locate-text-button" class="locate-button" type="button"><span aria-hidden="true">◎</span> Найти меня на карте</button>
+				<div id="map-place-slot" class="map-place-slot">
+				<section class="place-browser" id="place-browser">
+					<div class="section-heading"><strong>Категории</strong><span id="result-count"></span></div>
+					<div id="categories" class="categories"></div>
+					<div class="section-heading places-heading"><strong>Места</strong><span id="map-place-count"></span></div>
+					<div class="place-controls">
+						<input id="search" class="search" type="search" placeholder="Поиск места" aria-label="Поиск места">
+						<select id="sort-select" class="sort-select" aria-label="Сортировка мест">
+							<option value="name">По названию</option>
+							<option value="rating">По рейтингу</option>
+							<option value="distance" disabled>По близости</option>
+						</select>
+					</div>
+					<div id="place-list" class="place-list" aria-live="polite"></div>
+				</section>
+				</div>
+			<footer class="route-footer"><div class="route-count"><strong id="route-count">0</strong> в маршруте</div><div class="route-actions"><button id="clear-route" class="clear-button" type="button">Сбросить</button><button id="build-route" class="route-button" type="button">Маршрут</button></div></footer>
+			</aside>
+			<section class="map-shell" aria-label="Интерактивная карта">
+				<div id="map"></div>
+				<div class="map-topbar"><div class="map-tools"><button id="sidebar-toggle" class="icon-button sidebar-toggle" type="button" aria-label="Скрыть панель" aria-expanded="true" title="Скрыть панель">☰</button><div class="map-label"><span id="map-city">Карта</span><small id="map-subtitle">Яндекс Карты</small></div></div><div id="map-attribution" class="map-attribution">Яндекс Карты</div></div>
+				<div id="loading" class="loading">Загружаем места и карту…</div>
+				<div class="map-route-controls" hidden>
+					<div class="travel-mode" role="radiogroup" aria-label="Способ передвижения">
+						<button class="travel-mode-button active" type="button" role="radio" aria-checked="true" data-route-mode="walk"><span aria-hidden="true">♙</span> Пешком</button>
+						<button class="travel-mode-button" type="button" role="radio" aria-checked="false" data-route-mode="drive"><span aria-hidden="true">▰</span> На машине</button>
+					</div>
+					<button id="route-start-button" class="route-start-button" type="button" hidden>В путь</button>
+				</div>
+				<section id="navigation-panel" class="navigation-panel" aria-live="polite" hidden>
+					<header class="navigation-header"><span class="navigation-live"><i></i>НАВИГАЦИЯ</span><button id="navigation-stop" class="dialog-close" type="button" aria-label="Завершить навигацию">×</button></header>
+					<div class="navigation-destination"><small>МАРШРУТ ДО</small><strong id="navigation-destination">Пункт назначения</strong><span id="navigation-eta">—</span></div>
+					<div class="navigation-next"><span id="navigation-maneuver-icon" class="navigation-maneuver-icon">↑</span><div><small>СЛЕДУЮЩИЙ МАНЁВР</small><strong id="navigation-instruction">Продолжайте движение</strong><span id="navigation-road"></span></div></div>
+					<div class="navigation-distance"><strong id="navigation-distance">—</strong><span>до манёвра</span></div>
+					<div class="navigation-progress"><span id="navigation-progress-fill"></span></div>
+					<div class="navigation-footer"><span id="navigation-remaining">Подготовка маршрута</span><button id="navigation-finish" type="button">Финиш</button></div>
+				</section>
+			</section>
+		</section>
+		<section class="view-panel places-view" id="places-view" data-view-panel="places">
+			<header class="page-heading"><div><span class="eyebrow">ИССЛЕДУЙТЕ</span><h1>Достопримечательности</h1><p id="places-intro">Подборка мест города</p></div><span class="page-count" id="places-count"></span></header>
+			<div id="places-place-slot" class="places-place-slot"></div>
+		</section>
+		<section class="view-panel content-view mini-game-view" id="game-view" data-view-panel="game">
+			<header class="page-heading"><div><span class="eyebrow">ИДЕЯ ДЛЯ ПРОГУЛКИ</span><h1>Куда сходить?</h1><p id="mini-game-city">Ответь на пару случайных вопросов — подберём место в городе.</p></div></header>
+			<div class="mini-game-modes" role="tablist" aria-label="Режим мини-игры"><button class="mini-game-mode active" type="button" role="tab" aria-selected="true" data-game-mode="quiz">Куда сходить?</button><button class="mini-game-mode" type="button" role="tab" aria-selected="false" data-game-mode="jump">Прыжок по местам</button></div>
+			<section id="mini-quiz-card" class="mini-game-card" aria-live="polite">
+				<div class="mini-game-topline"><span id="mini-game-step">ПОДБОР МЕСТА</span><span class="mini-game-spark" aria-hidden="true">✳</span></div>
+				<h2 id="mini-game-question">К чему сегодня тянет?</h2>
+				<div id="mini-game-answers" class="mini-game-answers" hidden></div>
+				<div id="mini-game-result" class="mini-game-result" hidden></div>
+				<button id="mini-game-next" class="route-button mini-game-next" type="button">Начать</button>
+			</section>
+			<section id="mini-jump-card" class="mini-game-card mini-jump-card" hidden>
+				<div class="mini-game-topline"><span>СОБЕРИ МЕСТА ГОРОДА</span><div class="jump-top-actions"><label class="jump-difficulty-control" for="jump-difficulty">СЛОЖНОСТЬ<select id="jump-difficulty"><option value="easy">Лёгкая</option><option value="normal" selected>Обычная</option><option value="hard">Сложная</option></select></label><button id="jump-fullscreen" class="jump-fullscreen-button" type="button">На весь экран</button></div></div>
+				<p class="jump-instructions">Котик прыгает сам. ← → или A / D — управление; у котика 3 сердечка, остерегайся шипов и летающих монстров, золотые платформы падают.</p>
+				<div class="jump-play-area"><canvas id="landmark-jump-canvas" class="landmark-jump-canvas" width="420" height="560" aria-label="Игра: прыгай по платформам и собирай достопримечательности. Счёт показан вверху поля"></canvas><aside class="jump-collection-panel" aria-label="Счёт и собранные достопримечательности"><div class="jump-stat"><span>РЕКОРД</span><strong id="jump-record">0</strong></div><div class="jump-stat"><span>СОБРАНО МЕСТ</span><strong id="jump-collection-count">0</strong></div><div class="jump-collection-heading">ТВОЯ КОЛЛЕКЦИЯ</div><div id="jump-collected" class="jump-collected" aria-live="polite">Собранные места появятся здесь</div></aside></div>
+				<div id="landmark-question-overlay" class="landmark-question-overlay" hidden><div class="landmark-question-card"><span class="eyebrow">БОНУСНЫЙ ВОПРОС</span><h2 id="landmark-question-title">Где находится это место?</h2><p id="landmark-question-place"></p><div id="landmark-question-options" class="landmark-question-options"></div><span id="landmark-question-feedback" aria-live="polite"></span></div></div>
+				<div class="jump-touch-controls"><button type="button" data-jump-direction="left" aria-label="Влево">←</button><button type="button" data-jump-direction="right" aria-label="Вправо">→</button></div>
+				<button id="jump-start" class="route-button mini-game-next" type="button">Начать игру</button>
+			</section>
+		</section>
+		<section class="view-panel content-view" id="profile-view" data-view-panel="profile">
+			<header class="page-heading"><div><span class="eyebrow">ВАШ ПУТЕВОДИТЕЛЬ</span><h1>Профиль</h1><p>Ваши города и планы на прогулку</p></div></header>
+			<div class="profile-layout">
+				<section class="profile-intro"><div class="profile-avatar" id="profile-avatar">Г</div><label for="profile-name">Как к вам обращаться</label><div class="profile-edit"><input id="profile-name" class="search" maxlength="40" value="Гость"><button id="profile-save" class="route-button" type="button">Сохранить</button></div><p id="profile-message" class="profile-message" aria-live="polite">Имя хранится на этом устройстве</p></section>
+				<section class="profile-stats"><div><span>Сейчас исследуете</span><strong id="profile-city">Минск</strong></div><div><span>Посещено</span><strong id="profile-visited-count">0 мест</strong></div><div><span>В маршруте</span><strong id="profile-route-count">0 мест</strong></div></section>
+				<section class="profile-module random-module">
+					<div class="module-heading"><div><span class="eyebrow">ИДЕЯ НА СЕГОДНЯ</span><h2>Куда заглянуть?</h2></div><button id="random-place-spin" class="icon-button" type="button" title="Выбрать случайное место" aria-label="Выбрать случайное место">↻</button></div>
+					<div class="random-place-card"><img id="profile-random-photo" alt="" hidden><div class="random-place-copy"><strong id="profile-random-name">Выбери место наугад</strong><span id="profile-random-meta">Подберём вариант из каталога города</span><p id="profile-random-description"></p></div></div>
+					<button id="profile-random-open" class="profile-open-button" type="button" disabled>Показать место</button>
+				</section>
+				<section class="profile-module roulette-module">
+					<div class="module-heading"><div><span class="eyebrow">МАЛЕНЬКОЕ ПРИКЛЮЧЕНИЕ</span><h2>Куда поехать рядом?</h2></div><span class="roulette-mark" aria-hidden="true">✳</span></div>
+					<p class="module-description">Рулетка выберет ближайший населённый пункт из локального каталога.</p>
+					<div class="roulette-display" aria-live="polite"><strong id="city-roulette-result">Готовы к поездке?</strong><span id="city-roulette-distance">Сначала выбери направление</span></div>
+					<div class="roulette-actions"><button id="city-roulette-spin" class="route-button" type="button">Крутить рулетку</button><button id="city-roulette-open" class="profile-open-button" type="button" disabled>Открыть город</button></div>
+				</section>
+				<section class="profile-module history-module"><div class="module-heading"><div><span class="eyebrow">ВАША ИСТОРИЯ</span><h2>Где вы были</h2></div><span class="history-total" id="visited-total">0</span></div><div id="visited-list" class="visited-list" aria-live="polite"></div></section>
+			</div>
+		</section>
+		<section class="view-panel content-view" id="settings-view" data-view-panel="settings">
+			<header class="page-heading"><div><span class="eyebrow">ПОД СЕБЯ</span><h1>Настройки</h1><p>Внешний вид и карта</p></div></header>
+			<div class="settings-list">
+				<section class="settings-row"><div><strong>Оформление</strong><span>Выберите тему приложения</span></div><div class="theme-options"><button id="light-theme" class="theme-option" type="button">Светлая</button><button id="dark-theme" class="theme-option" type="button">Тёмная</button></div></section>
+				<section class="settings-row map-provider-row"><div><strong>Источник карты</strong><span id="map-provider-status">Яндекс — онлайн · локальные тайлы — офлайн</span></div><div class="map-provider-controls"><select id="map-provider" class="sort-select" aria-label="Источник карты"><option value="yandex">Яндекс Карты</option><option value="offline">Офлайн-карта</option></select></div></section>
+				<section class="settings-row"><div><strong>Геопозиция</strong><span>Карта использует точность GPS для масштаба и не переключает город при неточных координатах</span></div><button class="settings-action" type="button" data-open-map>Открыть карту</button></section>
+				<section class="settings-row"><div><strong>Локальный каталог</strong><span>Сохранённые места доступны без сети</span></div><span id="settings-catalog-count" class="settings-value">Загрузка</span></section>
+				<section class="settings-row"><div><strong>Города офлайн</strong><span id="offline-cities-description">Сохраняйте города для офлайн-каталога, фотографий и пеших маршрутов.</span></div><div class="offline-settings-actions"><span id="offline-cities-count" class="settings-value">0 городов</span><button id="manage-offline-cities" class="settings-action" type="button">Добавить города</button></div></section>
+				<section class="settings-row"><div><strong>Кеш карты и фото</strong><span id="cache-size">Проверяем размер кеша…</span></div><button id="clear-cache" class="settings-action danger-action" type="button">Очистить кеш</button></section>
+			</div>
+		</section>
+	</main>
+</div>
+<dialog id="first-run-dialog" class="place-dialog setup-dialog" aria-labelledby="first-run-title">
+	<div class="dialog-content"><div class="dialog-header"><div class="dialog-heading"><span class="eyebrow">ОФЛАЙН-ПАКЕТЫ</span><h2 id="first-run-title">Города офлайн</h2><div class="dialog-meta">Выберите, какие города подготовить на устройстве.</div></div></div>
+		<p id="offline-setup-note" class="setup-note">Выберите города, для которых подготовить офлайн-каталог и пешие маршруты.</p>
+		<input id="offline-city-search" class="search offline-city-search" type="search" placeholder="Найти город" aria-label="Найти город для сохранения"><div id="offline-city-options" class="offline-city-options"></div><div id="offline-download-progress" class="offline-download-progress" hidden><span id="offline-download-message">Подготавливаем данные…</span><div class="download-snake-track"><i></i><i></i><i></i><i></i><i></i></div></div><p id="offline-download-status" class="setup-progress" aria-live="polite"></p>
+		<div class="dialog-actions"><button id="first-run-later" type="button">Закрыть</button><button id="download-cities" class="primary" type="button">Сохранить города</button></div>
+	</div>
+</dialog>
+<dialog id="clear-cache-dialog" class="place-dialog confirm-dialog" aria-labelledby="clear-cache-title">
+	<div class="dialog-content"><div class="dialog-header"><div class="dialog-heading"><span class="eyebrow">УПРАВЛЕНИЕ ДАННЫМИ</span><h2 id="clear-cache-title">Очистить кеш?</h2></div></div>
+		<p class="setup-note">Будут удалены сохранённые тайлы и загруженные фотографии. При следующем просмотре их придётся загрузить заново, а без интернета они будут недоступны. Каталог городов и история посещений останутся.</p>
+		<div class="dialog-actions"><button id="cancel-clear-cache" type="button">Отмена</button><button id="confirm-clear-cache" class="primary" type="button">Очистить</button></div>
+	</div>
+</dialog>
+<aside id="hover-preview" class="hover-preview" aria-hidden="true"></aside>
+<dialog id="place-dialog" class="place-dialog" aria-labelledby="detail-name">
+	<div class="dialog-content">
+		<div class="dialog-header">
+			<div class="dialog-heading"><h2 id="detail-name"></h2><div id="detail-meta" class="dialog-meta"></div></div>
+			<button id="detail-close" class="dialog-close" type="button" aria-label="Закрыть">×</button>
+		</div>
+		<img id="detail-photo" class="dialog-photo" alt="">
+		<div id="detail-gallery" class="dialog-gallery"></div>
+		<section class="dialog-section"><h3>Описание</h3><p id="detail-description"></p></section>
+		<section class="dialog-section"><h3>История</h3><p id="detail-history"></p></section>
+		<div class="dialog-sources"><span id="detail-credit"></span><a id="detail-source" target="_blank" rel="noreferrer">Источник</a><a id="detail-wikipedia" target="_blank" rel="noreferrer">Статья</a></div>
+		<div class="dialog-actions"><button id="detail-visited" type="button">Был здесь</button><button id="detail-show-map" type="button">Показать на карте</button><button id="detail-route" class="primary" type="button">Маршрут от меня</button></div>
+	</div>
+</dialog>
+<dialog id="city-roulette-dialog" class="place-dialog roulette-dialog" aria-labelledby="roulette-dialog-title">
+	<div class="dialog-content roulette-dialog-content">
+		<div class="dialog-header"><div class="dialog-heading"><span class="eyebrow">БИЛЕТ В НЕИЗВЕСТНОСТЬ</span><h2 id="roulette-dialog-title">Куда отправимся?</h2><div class="dialog-meta">Ближайшие города вокруг тебя</div></div><button id="roulette-dialog-close" class="dialog-close" type="button" aria-label="Закрыть">×</button></div>
+		<div class="roulette-reel-window" id="roulette-reel-window"><div class="roulette-reel-track" id="roulette-reel-track"></div><span class="roulette-pointer" aria-hidden="true"></span></div>
+		<div class="roulette-winner"><strong id="roulette-winner-name">Готовим поездку…</strong><span id="roulette-winner-meta">Собираем фотографии городов</span></div>
+		<div class="dialog-actions"><button id="roulette-spin-again" type="button">Крутить ещё</button><button id="roulette-choose-city" class="primary" type="button" disabled>Едем сюда</button></div>
+	</div>
+</dialog>
+<script src="/vendor/leaflet.js"></script>
+<script defer src="/static/map.js?v=4"></script>
+</body>
+</html>

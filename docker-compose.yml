@@ -1,0 +1,29 @@
+name: smart-guide
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: smart-guide-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smart_guide
+      POSTGRES_USER: smart_guide
+      POSTGRES_PASSWORD: smart_guide
+    ports:
+      - "5432:5432"
+    volumes:
+      - smart-guide-postgis-data:/var/lib/postgresql/data
+
+  routing:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: smart-guide-routing
+    profiles: ["offline-routing"]
+    command: ["osrm-routed", "--algorithm", "mld", "/data/belarus.osrm"]
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./data/osrm:/data:ro
+    restart: unless-stopped
+
+volumes:
+  smart-guide-postgis-data:
